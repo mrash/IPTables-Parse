@@ -28,17 +28,20 @@ sub new() {
     my $class = shift;
     my %args  = @_;
 
-    my $ipt_bin  = '/sbin/iptables';
-    my $ipt6_bin = '/sbin/ip6tables';
-    my $fwc_bin  = '/usr/bin/firewall-cmd';
+    my $ipt_bin    = '/sbin/iptables';
+    my $ipt6_bin   = '/sbin/ip6tables';
+    my $fwc_bin    = '/usr/bin/firewall-cmd';
+    my $iptout_pat = 'ipt.out.XXXXXX';
+    my $ipterr_pat = 'ipt.out.XXXXXX';
 
     my $self = {
-        _iptables        => $args{'iptables'} || $args{'ip6tables'} || '',
+        _iptables        => $args{'iptables'}     || $args{'ip6tables'} || '',
         _firewall_cmd    => $args{'firewall-cmd'} || '',
         _fwd_args        => $args{'fwd_args'}     || '--direct --passthrough ipv4',
         _ipv6            => $args{'use_ipv6'}     || 0,
-        _iptout          => $args{'iptout'}       || mktemp('/tmp/ipt.out.XXXXXX'),
-        _ipterr          => $args{'ipterr'}       || mktemp('/tmp/ipt.err.XXXXXX'),
+        _iptout          => $args{'iptout'}       || '',
+        _ipterr          => $args{'ipterr'}       || '',
+        _tmpdir          => $args{'tmpdir'}       || '',
         _ipt_alarm       => $args{'ipt_alarm'}    || 30,
         _debug           => $args{'debug'}        || 0,
         _verbose         => $args{'verbose'}      || 0,
@@ -78,7 +81,7 @@ sub new() {
                 $self->{'_iptables'} = $ipt6_bin;
             } else {
                 croak "[*] Could not find/execute iptables, " .
-                    "specify path via _iptables\n";
+                    "specify path via 'iptables' key.\n";
             }
         }
     }
@@ -88,8 +91,27 @@ sub new() {
             $self->{'_iptables'} = $ipt6_bin;
         } else {
             croak "[*] Could not find/execute ip6tables, " .
-                "specify path via _iptables\n";
+                "specify path via 'ip6tables' key.\n";
         }
+    }
+
+    ### set up the path for temporary files
+    if ($self->{'_tmpdir'} and -d $self->{'_tmpdir'}) {
+        if ($self->{'_iptout'}) {
+            $self->{'_iptout'} = mktemp("$self->{'_tmpdir'}/$self->{'_iptout'}");
+        } else {
+            $self->{'_iptout'} = mktemp("$self->{'_tmpdir'}/$iptout_pat");
+        }
+        if ($self->{'_ipterr'}) {
+            $self->{'_ipterr'} = mktemp("$self->{'_tmpdir'}/$self->{'_ipterr'}");
+        } else {
+            $self->{'_ipterr'} = mktemp("$self->{'_tmpdir'}/$ipterr_pat");
+        }
+    } else {
+        $self->{'_iptout'} = mktemp("/tmp/$iptout_pat")
+            unless $self->{'_iptout'};
+        $self->{'_ipterr'} = mktemp("/tmp/$ipterr_pat")
+            unless $self->{'_ipterr'};
     }
 
     ### set the firewall binary name
@@ -1073,7 +1095,8 @@ iptables/ip6tables commands, or from parsing a file that contains an
 iptables/ip6tables policy listing. Note that the 'firewalld' infrastructure on
 Fedora21 is also supported through execution of the 'firewall-cmd' binary.
 By default, the path to iptables is assumed to be '/sbin/iptables', but if the
-firewall is 'firewalld', then the '/usr/bin/firewall-cmd' is used.
+firewall is 'firewalld', then the '/usr/bin/firewall-cmd' is used. Both of
+these paths are configurable via the keys mentioned below.
 
 With this module, you can get the current policy applied to a
 table/chain, look for a specific user-defined chain, check for a default DROP
@@ -1095,6 +1118,9 @@ can be passed to new() include 'iptables' (set path to iptables binary),
 'firewall_cmd' (set path to 'firewall-cmd' binary for systems with
 'firewalld'), 'fwd_args' (set 'firewall-cmd' usage args; defaults to
 '--direct --passthrough ipv4'), 'ipv6' (set IPv6 mode for ip6tables),
+'iptout' (set path to temporary stdout file, defaults to /tmp/ipt.out.XXXXXX),
+'ipterr' (set path to temporary stderr file, defaults to /tmp/ipt.err.XXXXXX),
+'tmpdir' (set path to temporary file handling directory),
 'debug', 'verbose', and 'lockless_ipt_exec' (disable usage of the iptables
 '-w' argument that acquires an exclusive lock on command execution).
 
