@@ -32,7 +32,7 @@ sub new() {
     my $ipt6_bin   = '/sbin/ip6tables';
     my $fwc_bin    = '/usr/bin/firewall-cmd';
     my $iptout_pat = 'ipt.out.XXXXXX';
-    my $ipterr_pat = 'ipt.out.XXXXXX';
+    my $ipterr_pat = 'ipt.err.XXXXXX';
 
     my $self = {
         _iptables        => $args{'iptables'}     || $args{'ip6tables'} || '',
