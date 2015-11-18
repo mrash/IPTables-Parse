@@ -28,9 +28,11 @@ sub new() {
     my $class = shift;
     my %args  = @_;
 
+    ### default iptables/ip6tables/firewall-cmd paths
     my $ipt_bin    = '/sbin/iptables';
     my $ipt6_bin   = '/sbin/ip6tables';
     my $fwc_bin    = '/usr/bin/firewall-cmd';
+
     my $iptout_pat = 'ipt.out.XXXXXX';
     my $ipterr_pat = 'ipt.err.XXXXXX';
 
@@ -55,7 +57,7 @@ sub new() {
         _lockless_ipt_exec   => $args{'lockless_ipt_exec'}   || 0,
     };
 
-    if ($self->{'_skip_ipt_exec_check'}) {
+    if ($self->{'_skip_ipt_exec_check'}) {  ### useful for file-only parsing
         unless ($self->{'_firewall_cmd'} or $self->{'_iptables'}) {
             ### default
             $self->{'_iptables'} = $ipt_bin;
@@ -93,7 +95,7 @@ sub new() {
             $self->{'_iptables'} = $ipt6_bin;
         } else {
             croak "[*] Could not find/execute ip6tables, " .
-                "specify path via 'ip6tables' key.\n";
+                "specify path via 'ip6tables' hash key.\n";
         }
     }
 
