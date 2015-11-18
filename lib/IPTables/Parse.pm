@@ -40,7 +40,9 @@ sub new() {
         _fwd_args        => $args{'fwd_args'}     || '--direct --passthrough ipv4',
         _ipv6            => $args{'use_ipv6'}     || 0,
         _iptout          => $args{'iptout'}       || '',
+        _iptout_pat      => $args{'iptout_pat'}   || '',
         _ipterr          => $args{'ipterr'}       || '',
+        _ipterr_pat      => $args{'ipterr_pat'}   || '',
         _tmpdir          => $args{'tmpdir'}       || '',
         _ipt_alarm       => $args{'ipt_alarm'}    || 30,
         _debug           => $args{'debug'}        || 0,
@@ -97,17 +99,27 @@ sub new() {
 
     ### set up the path for temporary files
     if ($self->{'_tmpdir'} and -d $self->{'_tmpdir'}) {
-        if ($self->{'_iptout'}) {
+        if ($self->{'_iptout_pat'}) {
+            $self->{'_iptout'}
+                = mktemp("$self->{'_tmpdir'}/$self->{'_iptout_pat'}");
+        } elsif ($self->{'_iptout'}) {
             $self->{'_iptout'} = mktemp("$self->{'_tmpdir'}/$self->{'_iptout'}");
         } else {
             $self->{'_iptout'} = mktemp("$self->{'_tmpdir'}/$iptout_pat");
         }
-        if ($self->{'_ipterr'}) {
+        if ($self->{'_ipterr_pat'}) {
+            $self->{'_ipterr'}
+                = mktemp("$self->{'_tmpdir'}/$self->{'_iptout_pat'}");
+        } elsif ($self->{'_ipterr'}) {
             $self->{'_ipterr'} = mktemp("$self->{'_tmpdir'}/$self->{'_ipterr'}");
         } else {
             $self->{'_ipterr'} = mktemp("$self->{'_tmpdir'}/$ipterr_pat");
         }
     } else {
+        croak "[*] 'iptout_pat' is only valid with 'tmpdir' set."
+            if $self->{'_iptout_pat'};
+        croak "[*] 'ipterr_pat' is only valid with 'tmpdir' set."
+            if $self->{'_iptout_err'};
         $self->{'_iptout'} = mktemp("/tmp/$iptout_pat")
             unless $self->{'_iptout'};
         $self->{'_ipterr'} = mktemp("/tmp/$ipterr_pat")
@@ -1119,7 +1131,9 @@ can be passed to new() include 'iptables' (set path to iptables binary),
 'firewalld'), 'fwd_args' (set 'firewall-cmd' usage args; defaults to
 '--direct --passthrough ipv4'), 'ipv6' (set IPv6 mode for ip6tables),
 'iptout' (set path to temporary stdout file, defaults to /tmp/ipt.out.XXXXXX),
+'iptout_pat' (set pattern for temporary stdout file in the 'tmpdir' directory),
 'ipterr' (set path to temporary stderr file, defaults to /tmp/ipt.err.XXXXXX),
+'iptout_err' (set pattern for temporary stderr file in the 'tmpdir' directory),
 'tmpdir' (set path to temporary file handling directory),
 'debug', 'verbose', and 'lockless_ipt_exec' (disable usage of the iptables
 '-w' argument that acquires an exclusive lock on command execution).
