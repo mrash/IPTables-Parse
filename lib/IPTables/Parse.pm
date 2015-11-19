@@ -79,6 +79,7 @@ sub new() {
             ### should be used instead if it exists)
             my $found = 0;
             for my $cmd ('firewall-cmd', 'iptables', 'ip6tables') {
+                next if $self->{'_ipv6'} and $cmd eq 'iptables';
                 my $path = &check_cmd($cmd);
                 if ($path) {
                     if ($cmd eq 'firewall-cmd') {
@@ -97,12 +98,17 @@ sub new() {
         }
     }
 
-    if ($self->{'_ipv6'} and $self->{'_iptables'} eq $ipt_bin) {
+    if ($self->{'_ipv6'} and $self->{'_iptables'} !~ /ip6tables/) {
         if (-e $ipt6_bin and -x $ipt6_bin) {
             $self->{'_iptables'} = $ipt6_bin;
         } else {
-            croak "[*] Could not find/execute ip6tables, " .
-                "specify path via 'ip6tables' hash key.\n";
+            my $path = &check_cmd('ip6tables');
+            if ($path) {
+                $self->{'_iptables'} = $path;
+            } else {
+                croak "[*] Could not find/execute ip6tables, " .
+                    "specify path via 'ip6tables' hash key.\n";
+            }
         }
     }
 
@@ -153,7 +159,7 @@ sub new() {
             if ($self->{'_ipt_bin_name'} eq 'iptables') {
                 unless ($self->{'_skip_ipt_exec_check'}) {
                     croak "[*] use_ipv6 is true, " .
-                        "but $self->{'_iptables'} not ip6tables.\n";
+                        "but $self->{'_iptables'} is not ip6tables.\n";
                 }
             }
         }
