@@ -19,15 +19,23 @@ my $basic_ipv4_rules_file = 'basic_ipv4.rules';
 my $PRINT_LEN = 68;
 #================== end config ===================
 
+my $test_include = '';
+my @tests_to_include = ();
+my $test_exclude = '';
+my @tests_to_exclude = ();
 my $verbose = 0;
 my $debug   = 0;
 my $help    = 0;
 my $use_fw_cmd = 0;
 
 die "[*] See '$0 -h' for usage information" unless (GetOptions(
-    'verbose' => \$verbose,
-    'debug'   => \$debug,
-    'help'    => \$help,
+    'test-include=s' => \@tests_to_include,
+    'include=s'      => \@tests_to_include,  ### synonym
+    'test-exclude=s' => \@tests_to_exclude,
+    'exclude=s'      => \@tests_to_exclude,  ### synonym
+    'verbose'        => \$verbose,
+    'debug'          => \$debug,
+    'help'           => \$help,
 ));
 &usage() if $help;
 
@@ -156,7 +164,8 @@ sub default_log_tests() {
     my $ipt_obj = shift;
 
     for my $chain (qw/INPUT OUTPUT FORWARD/) {
-        &dots_print("default_log($ipt_obj->{'_ipt_rules_file'}): filter $chain");
+        next unless &dots_print("default_log($ipt_obj->{'_ipt_rules_file'}): " .
+            "filter $chain");
 
         if ($ipt_obj->{'_ipt_rules_file'}) {
             &write_rules($ipt_obj,
@@ -180,7 +189,8 @@ sub default_drop_tests() {
     my $ipt_obj = shift;
 
     for my $chain (qw/INPUT OUTPUT FORWARD/) {
-        &dots_print("default_drop($ipt_obj->{'_ipt_rules_file'}): filter $chain");
+        next unless &dots_print("default_drop($ipt_obj->{'_ipt_rules_file'}): " .
+            "filter $chain");
 
         if ($ipt_obj->{'_ipt_rules_file'}) {
             &write_rules($ipt_obj,
@@ -207,12 +217,14 @@ sub chain_policy_tests() {
         my $table = $hr->{'table'};
         for my $chain (@{$hr->{'chains'}}) {
 
+            next unless &dots_print(
+                "chain_policy($ipt_obj->{'_ipt_rules_file'}): " .
+                "$table $chain policy");
+
             if ($ipt_obj->{'_ipt_rules_file'}) {
                 &write_rules($ipt_obj,
                     "$ipt_obj->{'_cmd'} -t $table -v -n -L $chain");
             }
-
-            &dots_print("chain_policy($ipt_obj->{'_ipt_rules_file'}): $table $chain policy");
 
             my $target = $ipt_obj->chain_policy($table, $chain);
 
@@ -234,10 +246,10 @@ sub chain_policy_tests() {
 
 sub parse_basic_ipv4_policy() {
 
-    $ipt_opts{'ipt_rules_file'} = $basic_ipv4_rules_file;
+    return unless &dots_print("Basic IPv4 parse " .
+        "$basic_ipv4_rules_file via chain_rules()");
 
-    &logr("\n[+] Running basic IPv4 chain_rules() parse test...\n");
-    &dots_print("parse $basic_ipv4_rules_file via chain_rules()");
+    $ipt_opts{'ipt_rules_file'} = $basic_ipv4_rules_file;
 
     my $ipt_obj = IPTables::Parse->new(%ipt_opts)
         or die "[*] Could not acquire IPTables::Parse object";
@@ -265,7 +277,8 @@ sub chain_rules_tests() {
 
         my $table = $hr->{'table'};
 
-        &dots_print("list_table_chains($ipt_obj->{'_ipt_rules_file'}): $table");
+        next unless &dots_print(
+            "list_table_chains($ipt_obj->{'_ipt_rules_file'}): $table");
 
         if ($ipt_obj->{'_ipt_rules_file'}) {
             &write_rules($ipt_obj,
@@ -283,7 +296,9 @@ sub chain_rules_tests() {
         $executed++;
 
         for my $chain (@{$hr->{'chains'}}) {
-            &dots_print("chain_rules($ipt_obj->{'_ipt_rules_file'}): $table $chain rules");
+            next unless &dots_print(
+                "chain_rules($ipt_obj->{'_ipt_rules_file'}): " .
+                "$table $chain rules");
 
             my $out_ar = &write_rules($ipt_obj,
                 "$ipt_obj->{'_cmd'} -t $table -v -n -L $chain");
@@ -337,13 +352,43 @@ sub chain_rules_tests() {
 
 sub dots_print() {
     my $msg = shift;
+
+    return 0 unless &process_include_exclude($msg);
+
     &logr($msg);
     my $dots = '';
     for (my $i=length($msg); $i < $PRINT_LEN; $i++) {
         $dots .= '.';
     }
     &logr($dots);
-    return;
+    return 1;
+}
+
+sub process_include_exclude() {
+    my $msg = shift;
+
+    ### inclusions/exclusions
+    if (@tests_to_include) {
+        my $found = 0;
+        for my $test (@tests_to_include) {
+            if ($msg =~ qr/$test/) {
+                $found = 1;
+                last;
+            }
+        }
+        return 0 unless $found;
+    }
+    if (@tests_to_exclude) {
+        my $found = 0;
+        for my $test (@tests_to_exclude) {
+            if ($msg =~ qr/$test/) {
+                $found = 1;
+                last;
+            }
+        }
+        return 0 if $found;
+    }
+    return 1;
 }
 
 sub logr() {
