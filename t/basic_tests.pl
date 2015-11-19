@@ -49,17 +49,24 @@ my %targets = (
     'RETURN' => '',
 );
 
-my %iptables_chains = (
-    'mangle' => [qw/PREROUTING INPUT OUTPUT FORWARD POSTROUTING/],
-    'raw'    => [qw/PREROUTING OUTPUT/],
-    'filter' => [qw/INPUT OUTPUT FORWARD/],
-    'nat'    => [qw/PREROUTING OUTPUT POSTROUTING/]
+my @iptables_chains = (
+    { 'table'  => 'mangle',
+      'chains' => [qw/PREROUTING INPUT OUTPUT FORWARD POSTROUTING/]},
+    { 'table'  => 'raw',
+      'chains' => [qw/PREROUTING OUTPUT/]},
+    { 'table'  => 'filter',
+      'chains' => [qw/INPUT OUTPUT FORWARD/]},
+    { 'table'  => 'nat',
+      'chains' => [qw/PREROUTING OUTPUT POSTROUTING/]},
 );
 
-my %ip6tables_chains = (
-    'mangle' => [qw/PREROUTING INPUT OUTPUT FORWARD POSTROUTING/],
-    'raw'    => [qw/PREROUTING OUTPUT/],
-    'filter' => [qw/INPUT OUTPUT FORWARD/],
+my @ip6tables_chains = (
+    { 'table'  => 'mangle',
+      'chains' => [qw/PREROUTING INPUT OUTPUT FORWARD POSTROUTING/]},
+    { 'table'  =>, 'raw',
+      'chains' => [qw/PREROUTING OUTPUT/]},
+    { 'table'  => 'filter',
+      'chains' => [qw/INPUT OUTPUT FORWARD/]},
 );
 
 my $passed = 0;
@@ -106,8 +113,8 @@ sub iptables_tests() {
     my $ipt_obj = IPTables::Parse->new(%ipt_opts)
         or die "[*] Could not acquire IPTables::Parse object";
 
-    &chain_policy_tests($ipt_obj, \%iptables_chains);
-    &chain_rules_tests($ipt_obj, \%iptables_chains);
+    &chain_policy_tests($ipt_obj, \@iptables_chains);
+    &chain_rules_tests($ipt_obj, \@iptables_chains);
     &default_log_tests($ipt_obj);
     &default_drop_tests($ipt_obj);
 
@@ -137,8 +144,8 @@ sub ip6tables_tests() {
     my $ipt_obj = IPTables::Parse->new(%ipt6_opts)
         or die "[*] Could not acquire IPTables::Parse object";
 
-    &chain_policy_tests($ipt_obj, \%ip6tables_chains);
-    &chain_rules_tests($ipt_obj, \%ip6tables_chains);
+    &chain_policy_tests($ipt_obj, \@ip6tables_chains);
+    &chain_rules_tests($ipt_obj, \@ip6tables_chains);
     &default_log_tests($ipt_obj);
     &default_drop_tests($ipt_obj);
 
@@ -194,10 +201,11 @@ sub default_drop_tests() {
 }
 
 sub chain_policy_tests() {
-    my ($ipt_obj, $tables_chains_hr) = @_;
+    my ($ipt_obj, $chains_ar) = @_;
 
-    for my $table (keys %$tables_chains_hr) {
-        for my $chain (@{$tables_chains_hr->{$table}}) {
+    for my $hr (@$chains_ar) {
+        my $table = $hr->{'table'};
+        for my $chain (@{$hr->{'chains'}}) {
 
             if ($ipt_obj->{'_ipt_rules_file'}) {
                 &write_rules($ipt_obj,
@@ -251,9 +259,11 @@ sub parse_basic_ipv4_policy() {
 }
 
 sub chain_rules_tests() {
-    my ($ipt_obj, $tables_chains_hr) = @_;
+    my ($ipt_obj, $chains_ar) = @_;
 
-    for my $table (keys %$tables_chains_hr) {
+    for my $hr (@$chains_ar) {
+
+        my $table = $hr->{'table'};
 
         &dots_print("list_table_chains($ipt_obj->{'_ipt_rules_file'}): $table");
 
@@ -272,7 +282,7 @@ sub chain_rules_tests() {
         }
         $executed++;
 
-        for my $chain (@{$tables_chains_hr->{$table}}) {
+        for my $chain (@{$hr->{'chains'}}) {
             &dots_print("chain_rules($ipt_obj->{'_ipt_rules_file'}): $table $chain rules");
 
             my $out_ar = &write_rules($ipt_obj,
