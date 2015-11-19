@@ -77,13 +77,20 @@ sub new() {
             ### check for firewall-cmd first since systems with it
             ### will have iptables installed as well (but firewall-cmd
             ### should be used instead if it exists)
-            if (-e $fwc_bin and -x $fwc_bin) {
-                $self->{'_firewall_cmd'} = $fwc_bin;
-            } elsif (-e $ipt_bin and -x $ipt_bin) {
-                $self->{'_iptables'} = $ipt_bin;
-            } elsif (-e $ipt6_bin and -x $ipt6_bin) {
-                $self->{'_iptables'} = $ipt6_bin;
-            } else {
+            my $found = 0;
+            for my $cmd ('firewall-cmd', 'iptables', 'ip6tables') {
+                my $path = &check_cmd($cmd);
+                if ($path) {
+                    if ($cmd eq 'firewall-cmd') {
+                        $self->{'_firewall_cmd'} = $path;
+                    } else {
+                        $self->{'_iptables'} = $path;
+                    }
+                    $found = 1;
+                    last;
+                }
+            }
+            unless ($found) {
                 croak "[*] Could not find/execute iptables, " .
                     "specify path via 'iptables' key.\n";
             }
@@ -293,6 +300,22 @@ sub parse_keys() {
     );
 
     return \%keys;
+}
+
+sub check_cmd() {
+    my $cmd_name = shift;
+
+    my $path = '';
+
+    for my $search_path ('/sbin', '/usr/sbin', '/bin', '/usr/bin') {
+        my $test_path = "$search_path/$cmd_name";
+        if (-e $test_path and -x $test_path) {
+            $path = $test_path;
+            last;
+        }
+    }
+
+    return $path;
 }
 
 sub list_table_chains() {
