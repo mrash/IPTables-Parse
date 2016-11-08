@@ -1196,7 +1196,7 @@ element contains the complete rule itself as reported by iptables or ip6tables.
 Here is an example of checking whether the second rule in the INPUT chain (array
 index 1) allows traffic from any IP to TCP port 80:
 
-  $rules_ar = $ipt_obj->chain_rules('filter', 'INPUT);
+  $rules_ar = $ipt_obj->chain_rules('filter', 'INPUT');
 
   if ($rules_ar->[1]->{'src'} eq '0.0.0.0/0'
           and $rules_ar->[1]->{'protocol'} eq 'tcp'
